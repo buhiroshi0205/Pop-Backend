@@ -43,7 +43,7 @@ def addEvent(request):#done, tested
     q.events.add(newEvent)
     q.save()
 
-    if q.groupType == 'private':
+    if q.groupType == 'private' or q.groupType == 'public':
         responses = PushClient().publish_multiple([PushMessage(to=u.expoPushToken,
                                                                title='{} happening in {}!'.format(name, loc),
                                                                body=newEvent.desc,
@@ -96,7 +96,7 @@ def getEventInfo(request):#done, tested
     [eid] = getParams(request, ['eid'])
     q = Event.objects.get(pk=eid)
     return JsonResponse({'eid': eid, 'name': q.name,'desc': q.desc, 'loc': q.loc,
-                         'status': q.confirmed, 'initTime': q.initTime.timestamp(),
+                         'status': q.confirmed, 'initTime': q.initTime.strftime('%b-%d %I:%M %p'),
                          'owner': q.owner.uid}) #not sure with timestamp
 
 @csrf_exempt
@@ -173,7 +173,7 @@ def confirmEvent(request):#done, tested
         e.confirmedMembers.add(User.objects.get(pk=uid))
         e.save()
 
-        if e.confirmed >= 1:
+        if e.confirmed == 1:
             g = e.group_events.all()[0]
             if g.groupType == 'public':
                 responses = PushClient().publish_multiple([PushMessage(to=u.expoPushToken,
@@ -198,7 +198,7 @@ def confirmEvent(request):#done, tested
 def search(request):#done, tested
     [query] = getParams(request, ['q'])
     return JsonResponse({'list': [g.gid for g in Group.objects.all()
-                                  if query in g.name]})
+                                  if query in g.name and g.groupType == 'public']})
 
 @csrf_exempt
 def updateToken(request):

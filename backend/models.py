@@ -19,7 +19,7 @@ class Event(models.Model):
     confirmed = models.IntegerField(default=0)
     confirmedMembers = models.ManyToManyField(User, related_name='group_confirmed_members')
     initTime = models.DateTimeField(default=datetime.datetime.now)
-    owner = models.ForeignKey(User, related_name='event_owner', on_delete=models.PROTECT)
+    owner = models.ForeignKey(User, related_name='event_owner', on_delete=models.CASCADE)
     
     def __str__(self):
         return self.name
@@ -29,7 +29,7 @@ class Group(models.Model):
     gid = models.CharField(max_length=36, primary_key=True)
     
     members = models.ManyToManyField(User, related_name='group_members')#, through='Membership', through_fields=('group', 'user'))
-    owner = models.ForeignKey(User, related_name='group_owner', on_delete=models.PROTECT)
+    owner = models.ForeignKey(User, related_name='group_owner', on_delete=models.CASCADE)
     GROUP_TYPE_CHOICES = (
         ('private', 'Private Group'),
         ('public', 'Public Group')
@@ -42,7 +42,7 @@ class Group(models.Model):
 
 '''
 class Membership(models.Model):
-    group = models.ForeignKey(Group, related_name='group_membership', on_delete=models.PROTECT)
-    user = models.ForeignKey(User, related_name='user_membership', on_delete=models.PROTECT)
+    group = models.ForeignKey(Group, related_name='group_membership', on_delete=models.CASCADE)
+    user = models.ForeignKey(User, related_name='user_membership', on_delete=models.CASCADE)
     notify = models.BooleanField()
 '''
