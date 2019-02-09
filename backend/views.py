@@ -1,10 +1,12 @@
 from django.http import JsonResponse, Http404
 from django.views.decorators.csrf import csrf_exempt
+from exponent_server_sdk import PushClient, PushMessage, DeviceNotRegisteredError
 from .models import Group, User, Event
 import hashlib, uuid
 
 def getParams(request, tags):
-    return [request.GET[i] for i in tags]
+    print(request.POST)
+    return [request.POST[i] for i in tags]
 
 def getHash(name, pwd):
     return hashlib.sha256((name+pwd).encode()).digest()
@@ -40,6 +42,22 @@ def addEvent(request):#done, tested
     q = Group.objects.get(pk=gid)
     q.events.add(newEvent)
     q.save()
+
+    if q.groupType == 'private':
+        responses = PushClient().publish_multiple([PushMessage(to=u.expoPushToken,
+                                                               title='{} happening in {}!'.format(name, loc),
+                                                               body=newEvent.desc,
+                                                               ttl=3,
+                                                               priority='high',
+                                                               sound='default') for u in q.members.all()])
+        for i in range(len(responses)):
+            try:
+                responses[i].validate_response()
+            except DeviceNotRegisteredError:
+                u = q.members.all()[i]
+                u.expoPushToken = ''
+                u.save()
+
     return JsonResponse({'eid': newEvent.eid})
 
 @csrf_exempt
@@ -71,7 +89,7 @@ def getGroupInfo(request):#done, tested
 def getEventList(request):#done, should be ok
     [gid] = getParams(request, ['gid'])
     eList = Group.objects.get(gid=gid).events.all()
-    return JsonResponse({'list': [e.eid for e in eList]})
+    return JsonResponse({'eventList': [e.eid for e in eList]})
 
 @csrf_exempt
 def getEventInfo(request):#done, tested
@@ -154,6 +172,24 @@ def confirmEvent(request):#done, tested
         e.confirmed += 1
         e.confirmedMembers.add(User.objects.get(pk=uid))
         e.save()
+
+        if e.confirmed >= 1:
+            g = e.group_events.all()[0]
+            if g.groupType == 'public':
+                responses = PushClient().publish_multiple([PushMessage(to=u.expoPushToken,
+                                                                       title="You'll never believe what you're missing out on!",
+                                                                       body="This is a test notification",
+                                                                       ttl=30,
+                                                                       priority='high',
+                                                                       sound='default') for u in g.members.all()])
+                for i in range(len(responses)):
+                    try:
+                        responses[i].validate_response()
+                    except DeviceNotRegisteredError:
+                        u = g.members.all()[i]
+                        u.expoPushToken = ''
+                        u.save()
+
         return JsonResponse({'status': 'success'})
     else:
         raise Http404("Multiple confirmation")
@@ -163,3 +199,13 @@ def search(request):#done, tested
     [query] = getParams(request, ['q'])
     return JsonResponse({'list': [g.gid for g in Group.objects.all()
                                   if query in g.name]})
+
+@csrf_exempt
+def updateToken(request):
+    [token, uid] = getParams(request, ['token', 'uid'])
+    u = User.objects.get(uid=uid)
+    print("before: "+u.expoPushToken)
+    u.expoPushToken = token
+    u.save()
+    print("after: "+u.expoPushToken)
+    return JsonResponse({'status': 'success'})

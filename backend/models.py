@@ -6,6 +6,7 @@ class User(models.Model):
     name = models.CharField(max_length=32)
     uid = models.CharField(max_length=36, primary_key=True)
     pwdHash = models.BinaryField(max_length=32)
+    expoPushToken = models.CharField(max_length=64)
     
     def __str__(self):
         return self.name
@@ -17,7 +18,7 @@ class Event(models.Model):
     eid = models.CharField(max_length=36, primary_key=True)
     confirmed = models.IntegerField(default=0)
     confirmedMembers = models.ManyToManyField(User, related_name='group_confirmed_members')
-    initTime = models.DateTimeField(default=datetime.datetime.now())
+    initTime = models.DateTimeField(default=datetime.datetime.now)
     owner = models.ForeignKey(User, related_name='event_owner', on_delete=models.PROTECT)
     
     def __str__(self):

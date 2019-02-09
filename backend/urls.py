@@ -21,4 +21,5 @@ urlpatterns = [
 	path('getUserInfo/', views.getUserInfo),
 	path('confirmEvent/', views.confirmEvent),
 	path('search/', views.search),
+	path('updateToken/', views.updateToken),
 ]
