@@ -27,7 +27,7 @@ def joinOpenGroup(request):#done, tested
     [uid, gid] = getParams(request, ['uid', 'gid'])
     g = Group.objects.get(pk=gid)
     u = User.objects.get(pk=uid)
-    if g.groupType == 'public':
+    if g.groupType == 'public' or g.groupType == 'private':
         g.members.add(u)
         g.save()
         return JsonResponse({'success': 'true'})
@@ -45,7 +45,7 @@ def addEvent(request):#done, tested
 
     if q.groupType == 'private' or q.groupType == 'public':
         responses = PushClient().publish_multiple([PushMessage(to=u.expoPushToken,
-                                                               title='{} happening in {}!'.format(name, loc),
+                                                               title='{} happening at {}!'.format(name, loc),
                                                                body=newEvent.desc,
                                                                ttl=3,
                                                                priority='high',
@@ -64,7 +64,9 @@ def addEvent(request):#done, tested
 def deleteEvent(request):#done, BUGGY
     [uid, eid] = getParams(request, ['uid', 'eid'])
     q = Event.objects.get(pk=eid)
-    if uid == q.owner or uid == q.group_events.all()[0].owner.uid:
+    g = q.group_events.all()[0]
+    if uid == q.owner.uid or uid == g.owner.uid:
+        g.events.remove(q)
         q.delete()
         q.save()
         return JsonResponse({'success': 'true'})
@@ -93,11 +95,11 @@ def getEventList(request):#done, should be ok
 
 @csrf_exempt
 def getEventInfo(request):#done, tested
-    [eid] = getParams(request, ['eid'])
+    [eid, uid] = getParams(request, ['eid', 'uid'])
     q = Event.objects.get(pk=eid)
     return JsonResponse({'eid': eid, 'name': q.name,'desc': q.desc, 'loc': q.loc,
                          'status': q.confirmed, 'initTime': q.initTime.strftime('%b-%d %I:%M %p'),
-                         'owner': q.owner.uid}) #not sure with timestamp
+                         'owner': q.owner.uid, 'isOwner': uid == q.owner.uid or uid == q.group_events.all()[0].owner.uid})
 
 @csrf_exempt
 def register(request):#done, tested
@@ -111,8 +113,11 @@ def register(request):#done, tested
 @csrf_exempt
 def login(request):#done, tested
     [name, pwd] = getParams(request, ['name', 'pwd'])
-    u = User.objects.get(name=name) 
+    u = User.objects.get(name=name)
     if u.pwdHash == getHash(name, pwd):
+        for otheruser in User.objects.all():
+            if otheruser.expoPushToken == u.expoPushToken:
+                otheruser.expoPushToken = ''
         return JsonResponse({'uid': u.uid})
     else:
         raise Http404("Restricted access!")
